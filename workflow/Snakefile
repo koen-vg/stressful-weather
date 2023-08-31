@@ -1,0 +1,347 @@
+# SPDX-FileCopyrightText: 2022 Koen van Greevenbroek & Aleksander Grochowicz
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+import os
+import yaml
+import snakemake
+
+from scripts.workflow_utilities import (
+    parse_net_spec,
+    parse_year_wildcard,
+    validate_configs,
+)
+
+from snakemake.utils import min_version
+
+# A recent version of snakemake is required for the module prefix
+# keyword support.
+min_version("7.0.1")
+
+# First, validate the configuration files to make sure we do not make
+# any silly mistakes.
+validate_configs("config")
+
+
+# Each snakemake run is defined by a named configuration file, which
+# is given as a command-line argument. This name is constant for the
+# whole snakemake run.
+run_name = config["name"]
+results_dir = "results/" + run_name
+networks_dir = "networks/" + run_name
+
+# Extract the custom pypsa-eur config section from the top-level
+# workflow config, and update the "run" section.
+custom_pypsa_eur_config = config["pypsa-eur"]
+custom_pypsa_eur_config["run"]["name"] = run_name
+
+# Read the default pypsa-eur config, and update it using our custom config.
+with open("workflow/modules/pypsa-eur/config.default.yaml", "r") as f:
+    pypsa_eur_config = yaml.safe_load(f)
+snakemake.utils.update_config(pypsa_eur_config, custom_pypsa_eur_config)
+
+
+# Set the number of threads to use for network optimisations.
+# Note: This may need to be changed if a different solver than Gurobi is used.
+grb_threads = config["pypsa-eur"]["solving"]["solver"]["threads"]
+
+
+# Define the pypsa-eur module.
+module pypsaeur:
+    snakefile:
+        "modules/pypsa-eur/Snakefile"
+    config:
+        pypsa_eur_config
+    prefix:
+        "workflow/modules/pypsa-eur"
+
+
+use rule * from pypsaeur as pypsaeur_*
+
+
+wildcard_constraints:
+    # wildcards from pypsa-eur(-sec):
+    simpl="[a-za-z0-9]*|all",
+    clusters="[0-9]+m?|all",
+    ll="(v|c)([0-9\.]+|opt|all)|all",
+    opts="[-+a-zA-Z0-9\.]*",
+    # The {year} wildcard represents a single year or a range of years.
+    year="[0-9]{4}(-[0-9]{4})?",
+    op_year="[0-9]{4}",
+    weather_year="[0-9]{4}",
+
+
+rule build_all_networks:
+    input:
+        expand(
+            os.path.join(
+                networks_dir,
+                "{year}_{simpl}_{clusters}_{ll}_{opts}.nc",
+            ),
+            **config["scenario"]
+        ),
+
+
+rule compute_all_optimum:
+    input:
+        expand(
+            os.path.join(
+                results_dir, "optimum/{year}_{simpl}_{clusters}_{ll}_{opts}.nc"
+            ),
+            **config["scenario"]
+        ),
+
+
+rule all_difficult_periods:
+    input:
+        expand(
+            os.path.join(
+                results_dir, "periods/{year}_{simpl}_{clusters}_{ll}_{opts}.csv"
+            ),
+            **config["scenario"]
+        ),
+
+
+rule operate_all_networks:
+    input:
+        expand(
+            os.path.join(
+                results_dir,
+                "operations",
+                "load_shedding_op{op_year}_weather{weather_year}_{simpl}_{clusters}_{ll}_{opts}.csv",
+            ),
+            op_year=config["scenario"]["year"],
+            weather_year=config["scenario"]["year"],
+            **config["scenario"]
+        ),
+
+
+# Rule to invoke the pypsa-eur subworkflow and copy the result to the
+# networks directory. Local rule.
+rule build_network:
+    input:
+        "workflow/modules/pypsa-eur/networks/"
+        + run_name
+        + "/elec{year}_s{simpl}_{clusters}_ec_l{ll}_{opts}.nc",
+    output:
+        os.path.join(networks_dir, "{year}_{simpl}_{clusters}_{ll}_{opts}.nc"),
+    shell:
+        "cp {input} {output}"
+
+
+def optimisation_memory(wildcards):
+    """Estimate the memory requirement for solving a model with the given wildcards.
+
+    This function assumes that the model is solved using Gurobi. The
+    formula results from the a simple regression on memory consumption
+    of models with a variety of different resolutions. The modelling
+    horizon is assumed to be one year.
+
+    We only consider model spatial and temporal resolution as relevant
+    factors for this computation.
+
+    The formula obtained by regression is the following:
+        -1035.4 - 4.59 g + 40.86 c + 92.34 (g+c) / h + 5564.72 / h
+    where g = simpl, c = clusters and h is the time resolution in
+    hours. We add 5% to this formula.
+
+    The code in inspired by the comparable functionality in pypsa-eur.
+    """
+    # Parse the network specs
+    s = parse_net_spec(wildcards.spec)
+
+    # Compute a multiplicative factor based on time resolution.
+    h = 1
+    for o in s["opts"].split("-"):
+        m = re.match(r"^(\d+)h$", o, re.IGNORECASE)
+        if m is not None:
+            h = int(m.group(1))
+            break
+
+    # Also divide this factor by the number of years the model runs over.
+    year = s["year"] if s["year"] else wildcards.year
+    num_years = len(parse_year_wildcard(year))
+    h = h / num_years
+
+    # Find the memory consumption based the spatial resolution (with
+    # hourly time resolution). This depends on both the 'simpl' and
+    # 'cluster' wildcards.
+    if s["clusters"].endswith("m"):
+        clusters = int(s["clusters"][:-1])
+        simpl = int(s["simpl"])
+    else:
+        clusters = int(s["clusters"])
+        simpl = clusters
+
+    mem = -1000 - 5 * simpl + 41 * clusters + 92 * (simpl + clusters) / h + 5600 / h
+    return 1.05 * mem
+
+
+def opt_time_exp(wildcards):
+    """Returns the expected time it takes to do a network optimisation."""
+    # Parse the network specs
+    s = parse_net_spec(wildcards.spec)
+
+    if s["clusters"].endswith("m"):
+        clusters = int(s["clusters"][:-1])
+    else:
+        clusters = int(s["clusters"])
+
+    # Compute a multiplicative factor based on time resolution.
+    h = 1
+    for o in s["opts"].split("-"):
+        m = re.match(r"^(\d+)h$", o, re.IGNORECASE)
+        if m is not None:
+            h = int(m.group(1))
+            break
+
+    # Crude estimation: time is linear in number of clusters and timesteps.
+    # Unit is minutes.
+    N = clusters * 8760 / h
+    C = 0.001  # "Number of minutes to process one piece of N"
+    return C * N
+
+
+rule compute_optimum:
+    input:
+        network=os.path.join(networks_dir, "{spec}.nc"),
+    output:
+        # Example: "optimum/1980-2020_181_90m_lcopt_Co2L-3H.nc"
+        #                   <------------spec------------->
+        optimum=os.path.join(results_dir, "optimum/{spec}.nc"),
+        obj=os.path.join(results_dir, "optimum/{spec}.obj"),
+    log:
+        python=os.path.join("logs", run_name, "optimum/{spec}.log"),
+        solver=os.path.join("logs", run_name, "optimum/{spec}_solver.log"),
+    benchmark:
+        os.path.join("benchmarks", run_name, "optimum/{spec}.tsv")
+    conda:
+        "envs/stressful-weather.fixed.yaml"
+    resources:
+        mem_mb=lambda wildcards, attempt: attempt * optimisation_memory(wildcards),
+        runtime=lambda wildcards, attempt: attempt * 2 * opt_time_exp(wildcards),
+    retries: 3
+    threads: grb_threads
+    script:
+        "scripts/compute_optimum.py"
+
+
+def operations_memory(wildcards, attempt):
+    """Estimate the memory requirements for solving operations.
+
+    The wildcards are used to extract temporal and spatial resolution.
+    At first half the memory estimated by `optimsation_memory` is
+    used, and this is increased in successive attempts if snakemake is
+    run with the `--restart-times n` argument.
+
+    """
+    return attempt * 0.8 * optimisation_memory(wildcards)
+
+
+# Rule to solve operations of network with given capacities.
+rule solve_operations:
+    input:
+        network_op=os.path.join(results_dir, "optimum", "{op_year}_{spec}.nc"),
+        network_weather=os.path.join(networks_dir, "{weather_year}_{spec}.nc"),
+    output:
+        # Example: "operations/op2019_weather1984_181_90m_lcopt_Co2L-3H.nc"
+        #                                         <--------spec------->
+        network=os.path.join(
+            results_dir, "operations/op{op_year}_weather{weather_year}_{spec}.nc"
+        ),
+    log:
+        os.path.join(
+            "logs", run_name, "operations/op{op_year}_weather{weather_year}_{spec}.nc"
+        ),
+    benchmark:
+        os.path.join(
+            "benchmarks",
+            run_name,
+            "operations/op{op_year}_weather{weather_year}_{spec}.nc",
+        )
+    conda:
+        "envs/operations.yaml"
+    # resources:
+    #     mem_mb=operations_memory,
+    threads: grb_threads
+    script:
+        "scripts/solve_operations.py"
+
+
+# Rule to output load shedding for operated networks.
+rule count_load_shedding:
+    input:
+        network=os.path.join(
+            results_dir, "operations/op{op_year}_weather{weather_year}_{spec}.nc"
+        ),
+    output:
+        os.path.join(
+            results_dir,
+            "operations/load_shedding_op{op_year}_weather{weather_year}_{spec}.csv",
+        ),
+    log:
+        os.path.join(
+            "logs",
+            run_name,
+            "operations/load_shedding_op{op_year}_weather{weather_year}_{spec}.log",
+        ),
+    conda:
+        "envs/stressful-weather.fixed.yaml"
+    resources:
+        mem_mb=5000,
+    threads: 1
+    script:
+        "scripts/count_load_shedding.py"
+
+
+def opt_networks_input(w):
+    return {
+        str(y): os.path.join(
+            results_dir, "optimum", f"{y}_{w.simpl}_{w.clusters}_{w.ll}_{w.opts}.nc"
+        )
+        for y in parse_year_wildcard(w.year)
+    }
+
+
+rule difficult_periods:
+    input:
+        unpack(opt_networks_input),
+    output:
+        os.path.join(results_dir, "periods/{year}_{simpl}_{clusters}_{ll}_{opts}.csv"),
+    log:
+        os.path.join(
+            "logs", run_name, "periods/{year}_{simpl}_{clusters}_{ll}_{opts}.log"
+        ),
+    conda:
+        "envs/stressful-weather.fixed.yaml"
+    resources:
+        mem_mb=5000,
+    threads: 1
+    script:
+        "scripts/difficult_periods.py"
+
+
+rule compute_means:
+    input:
+        unpack(opt_networks_input),
+    output:
+        wind=os.path.join(
+            results_dir, "means/wind-means_{year}_{simpl}_{clusters}_{ll}_{opts}.csv"
+        ),
+        solar=os.path.join(
+            results_dir, "means/solar-means_{year}_{simpl}_{clusters}_{ll}_{opts}.csv"
+        ),
+        load=os.path.join(
+            results_dir, "means/load-means_{year}_{simpl}_{clusters}_{ll}_{opts}.csv"
+        ),
+    log:
+        os.path.join(
+            "logs", run_name, "means/{year}_{simpl}_{clusters}_{ll}_{opts}.log"
+        ),
+    conda:
+        "envs/stressful-weather.fixed.yaml"
+    resources:
+        mem_mb=5000,
+    threads: 1
+    script:
+        "scripts/compute_means.py"

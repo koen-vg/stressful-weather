@@ -1,0 +1,16 @@
+# SPDX-FileCopyrightText: 2023 Aleks Grochowicz & Koen van Greevenbroek
+#
+# SPDX-License-Identifier: CC0-1.0
+
+name: operations
+channels:
+  - conda-forge
+  - bioconda
+  - http://conda.anaconda.org/gurobi
+dependencies:
+  - python
+  - pip
+  - mamba
+
+  - pypsa>=0.23.0
+  - gurobi

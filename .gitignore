@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: 2022 Koen van Greevenbroek & Aleksander Grochowicz
+#
+# SPDX-License-Identifier: CC0-1.0
+
+# Modelling files, etc.
+networks/*
+results/*
+benchmarks/*
+logs/*
+.snakemake
+gurobi.log
+
+# Python cache
+__pycache__/
+
+# temporary folder and files (by configuration).
+tmp/*
