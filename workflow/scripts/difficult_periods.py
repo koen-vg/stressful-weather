@@ -121,7 +121,6 @@ def global_difficult_periods(
         # Find total costs for all intervals of width w+1
         costs = total_costs.rolling(w + 1).sum().iloc[w:]
         costs.index = intervals
-
         # In case we are only looking at intervals within some given
         # months, the index of `costs` might actually consist of two
         # disjoint seasons (e.g. July-October and April-June), leading
@@ -191,7 +190,6 @@ def global_difficult_periods(
         # Add the intervals we found one by one. However, since the
         # intervals may be been extended, they may now still overlap
         # with some of the intervals in the index of C.
-
         # NOTE: this code path is not taken for the periods of our paper!
         for I in non_overlapping_I:
             if len(C) == 0:
@@ -231,7 +229,7 @@ if __name__ == "__main__":
         )
         for n in ns.values()
     ]
-    periods = [periods for elem in global_collection for periods in elem]
+    periods = [periods for elem in period_collection for periods in elem]
 
     logging.info(f"Identified {len(periods)} difficult periods.")
 

@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pypsa
 from _helpers import configure_logging
-from pypsa.descriptors import nominal_attrs
+from pypsa.descriptors import nominal_attrs, get_extendable_i
 from pypsa.linopf import network_lopf
 
 
