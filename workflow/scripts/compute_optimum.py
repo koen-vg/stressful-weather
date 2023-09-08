@@ -25,10 +25,7 @@ if __name__ == "__main__":
     if tmpdir is not None:
         Path(tmpdir).mkdir(parents=True, exist_ok=True)
 
-    if snakemake.config["model"] == "pypsa-eur":
-        opts = parse_net_spec(snakemake.wildcards.spec)["opts"].split("-")
-    else:
-        opts = parse_net_spec(snakemake.wildcards.spec)["sector_opts"].split("-")
+    opts = parse_net_spec(snakemake.wildcards.spec)["opts"].split("-")
 
     # Solve the network for the cost optimum and then get its
     # coordinates in the basis.
