@@ -268,32 +268,6 @@ rule solve_operations:
         "scripts/solve_operations.py"
 
 
-# Rule to output load shedding for operated networks.
-rule count_load_shedding:
-    input:
-        network=os.path.join(
-            results_dir, "operations/op{op_year}_weather{weather_year}_{spec}.nc"
-        ),
-    output:
-        os.path.join(
-            results_dir,
-            "operations/load_shedding_op{op_year}_weather{weather_year}_{spec}.csv",
-        ),
-    log:
-        os.path.join(
-            "logs",
-            run_name,
-            "operations/load_shedding_op{op_year}_weather{weather_year}_{spec}.log",
-        ),
-    conda:
-        "envs/stressful-weather.fixed.yaml"
-    resources:
-        mem_mb=5000,
-    threads: 1
-    script:
-        "scripts/count_load_shedding.py"
-
-
 def opt_networks_input(w):
     return {
         str(y): os.path.join(
@@ -319,29 +293,3 @@ rule difficult_periods:
     threads: 1
     script:
         "scripts/difficult_periods.py"
-
-
-rule compute_means:
-    input:
-        unpack(opt_networks_input),
-    output:
-        wind=os.path.join(
-            results_dir, "means/wind-means_{year}_{simpl}_{clusters}_{ll}_{opts}.csv"
-        ),
-        solar=os.path.join(
-            results_dir, "means/solar-means_{year}_{simpl}_{clusters}_{ll}_{opts}.csv"
-        ),
-        load=os.path.join(
-            results_dir, "means/load-means_{year}_{simpl}_{clusters}_{ll}_{opts}.csv"
-        ),
-    log:
-        os.path.join(
-            "logs", run_name, "means/{year}_{simpl}_{clusters}_{ll}_{opts}.log"
-        ),
-    conda:
-        "envs/stressful-weather.fixed.yaml"
-    resources:
-        mem_mb=5000,
-    threads: 1
-    script:
-        "scripts/compute_means.py"
