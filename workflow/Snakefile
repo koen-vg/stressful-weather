@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+import copy
 import os
 import yaml
 import snakemake
@@ -71,6 +72,10 @@ wildcard_constraints:
     weather_year="[0-9]{4}",
 
 
+scenario_single_years = copy.deepcopy(config["scenario"])
+scenario_single_years["year"] = parse_year_wildcard(scenario_single_years["year"])
+
+
 rule build_all_networks:
     input:
         expand(
@@ -78,7 +83,7 @@ rule build_all_networks:
                 networks_dir,
                 "{year}_{simpl}_{clusters}_{ll}_{opts}.nc",
             ),
-            **config["scenario"]
+            **scenario_single_years
         ),
 
 
@@ -88,7 +93,7 @@ rule compute_all_optimum:
             os.path.join(
                 results_dir, "optimum/{year}_{simpl}_{clusters}_{ll}_{opts}.nc"
             ),
-            **config["scenario"]
+            **scenario_single_years
         ),
 
 
@@ -108,11 +113,11 @@ rule operate_all_networks:
             os.path.join(
                 results_dir,
                 "operations",
-                "load_shedding_op{op_year}_weather{weather_year}_{simpl}_{clusters}_{ll}_{opts}.csv",
+                "op{op_year}_weather{weather_year}_{simpl}_{clusters}_{ll}_{opts}.nc",
             ),
-            op_year=config["scenario"]["year"],
-            weather_year=config["scenario"]["year"],
-            **config["scenario"]
+            op_year=parse_year_wildcard(config["scenario"]["year"]),
+            weather_year=parse_year_wildcard(config["scenario"]["year"]),
+            **scenario_single_years
         ),
 
 
