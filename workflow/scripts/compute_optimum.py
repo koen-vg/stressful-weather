@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2022 Koen van Greevenbroek & Aleksander Grochowicz
+# SPDX-FileCopyrightText: 2023 Koen van Greevenbroek & Aleksander Grochowicz
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -8,7 +8,6 @@ import logging
 import time
 from pathlib import Path
 
-import pandas as pd
 import pypsa
 from _helpers import configure_logging
 from solve_network_linopy import prepare_network, solve_network

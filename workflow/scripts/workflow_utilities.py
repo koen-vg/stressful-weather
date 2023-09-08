@@ -1,13 +1,10 @@
-# SPDX-FileCopyrightText: 2022 Koen van Greevenbroek & Aleksander Grochowicz
+# SPDX-FileCopyrightText: 2023 Koen van Greevenbroek & Aleksander Grochowicz
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 """Simple utilities aiding the Snakemake workflow."""
 
 
-import copy
-import hashlib
-import json
 import os
 import re
 from os.path import join

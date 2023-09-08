@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2022 Koen van Greevenbroek & Aleksander Grochowicz
+# SPDX-FileCopyrightText: 2023 Koen van Greevenbroek & Aleksander Grochowicz
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pypsa
 from _helpers import configure_logging
-from pypsa.descriptors import nominal_attrs, get_extendable_i
+from pypsa.descriptors import get_extendable_i, nominal_attrs
 from pypsa.linopf import network_lopf
 
 
