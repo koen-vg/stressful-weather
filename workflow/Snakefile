@@ -214,7 +214,6 @@ rule compute_optimum:
         # Example: "optimum/1980-2020_181_90m_lcopt_Co2L-3H.nc"
         #                   <------------spec------------->
         optimum=os.path.join(results_dir, "optimum/{spec}.nc"),
-        obj=os.path.join(results_dir, "optimum/{spec}.obj"),
     log:
         python=os.path.join("logs", run_name, "optimum/{spec}.log"),
         solver=os.path.join("logs", run_name, "optimum/{spec}_solver.log"),

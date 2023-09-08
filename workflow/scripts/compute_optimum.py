@@ -44,8 +44,5 @@ if __name__ == "__main__":
     # anything in order to make snakemake fail. Not checking for this
     # would result in an invalid (non-optimal) network being output.
     if status == "ok":
-        # Write the result to the given output files. Save the objective
-        # value for further processing.
+        # Write the result to the given output files.
         n.export_to_netcdf(snakemake.output.optimum)
-        with open(snakemake.output.obj, "w") as f:
-            f.write(str(n.objective))
