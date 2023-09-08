@@ -8,7 +8,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 This repository contains the code necessary to reproduce the results of the paper "[A new method for identifying weather-induced power system stress using shadow prices](https://arxiv.org/abs/2307.13520)". Additional data accompanying the paper can be found at [DOI:10.5281/zenodo.8328689](https://doi.org/10.5281/zenodo.8328689).
 
-![Difficult power system event example](./images/event_example.pdf)
+![Difficult power system event example](./images/event_example.svg)
 
 ## Overview
 
