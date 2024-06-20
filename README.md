@@ -4,9 +4,9 @@ SPDX-FileCopyrightText: 2023 Koen van Greevenbroek & Aleksander Grochowicz
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
-# A new method for identifying weather-induced power system stress using shadow prices
+# Using power system modelling outputs to identify weather-induced extreme events in highly renewable systems
 
-This repository contains the code necessary to reproduce the results of the paper "[A new method for identifying weather-induced power system stress using shadow prices](https://arxiv.org/abs/2307.13520)". Additional data accompanying the paper can be found at [DOI:10.5281/zenodo.8328689](https://doi.org/10.5281/zenodo.8328689).
+This repository contains the code necessary to reproduce the results of the paper "[Using power system modelling outputs to identify weather-induced extreme events in highly renewable systems](https://doi.org/10.1088/1748-9326/ad374a)". Additional data accompanying the paper can be found at [DOI:10.5281/zenodo.8328689](https://doi.org/10.5281/zenodo.8328689).
 
 ![Difficult power system event example](./images/event_example.svg)
 
